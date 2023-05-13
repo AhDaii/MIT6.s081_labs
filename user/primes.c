@@ -31,7 +31,7 @@ void solve(int *pl)
     wait((int *)0);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     int lfd[2];
     pipe(lfd);
