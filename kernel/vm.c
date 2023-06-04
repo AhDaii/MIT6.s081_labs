@@ -47,6 +47,23 @@ kvminit()
   kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 }
 
+pagetable_t
+pkvminit()
+{
+  pagetable_t p_pagetable = (pagetable_t)kalloc();
+  memset(p_pagetable, 0, PGSIZE);
+
+  pkvmmap(p_pagetable, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  pkvmmap(p_pagetable, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+  pkvmmap(p_pagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+  pkvmmap(p_pagetable, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+  pkvmmap(p_pagetable, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+  pkvmmap(p_pagetable, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+  pkvmmap(p_pagetable, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+
+  return p_pagetable;
+}
+
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
 void
@@ -119,6 +136,13 @@ kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
 {
   if(mappages(kernel_pagetable, va, sz, pa, perm) != 0)
     panic("kvmmap");
+}
+
+void
+pkvmmap(pagetable_t p_pagetable, uint64 va, uint64 pa, uint64 sz, int perm)
+{
+  if(mappages(p_pagetable, va, sz, pa, perm) != 0)
+    panic("pkvmmap");
 }
 
 // translate a kernel virtual address to
