@@ -41,11 +41,6 @@ ifeq ($(LAB),pgtbl)
 OBJS += $K/vmcopyin.o
 endif
 
-ifeq ($(LAB),pgtbl)
-OBJS += \
-	$K/vmcopyin.o
-endif
-
 ifeq ($(LAB),$(filter $(LAB), pgtbl lock))
 OBJS += \
 	$K/stats.o\
@@ -245,10 +240,6 @@ ifeq ($(LAB),util)
 	UEXTRA += user/xargstest.sh
 endif
 
-<<<<<<< HEAD
-
-=======
->>>>>>> b5cf9975f8985296d6b78b1229ea59b74245fd7b
 fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)
 	mkfs/mkfs fs.img README $(UEXTRA) $(UPROGS)
 
