@@ -25,3 +25,4 @@ barrier
 .DS_Store
 .vscode/c_cpp_properties.json
 .gitignore
+.vscode/settings.json
