@@ -38,7 +38,7 @@ procinit(void)
   //     if(pa == 0)
   //       panic("kalloc");
   //     uint64 va = KSTACK((int) (p - proc));
-  //     pkvmmap(p->proc_kernel_pagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  //     pkvmmap(p->proc_kernal_pagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   //     p->kstack = va;
   // }
   kvminithart();
@@ -120,8 +120,8 @@ found:
     release(&p->lock);
     return 0;
   }
-  p->proc_kernel_pagetable = pkvminit();
-  if (p->proc_kernel_pagetable == 0) {
+  p->proc_kernal_pagetable = pkvminit();
+  if (p->proc_kernal_pagetable == 0) {
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -130,7 +130,7 @@ found:
   if(pa == 0)
     panic("kalloc");
   uint64 va = KSTACK((int) (p - proc));
-  pkvmmap(p->proc_kernel_pagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  pkvmmap(p->proc_kernal_pagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   p->kstack = va;
 
   // Set up new context to start executing at forkret,
@@ -153,7 +153,7 @@ freeproc(struct proc *p)
   p->trapframe = 0;
 
   if (p->kstack) {
-    pte_t* pte = walk(p->proc_kernel_pagetable, p->kstack, 0);  
+    pte_t* pte = walk(p->proc_kernal_pagetable, p->kstack, 0);  
     if (pte == 0)
       panic("freeproc : kstack");
     kfree((void *)PTE2PA(*pte));
@@ -163,8 +163,8 @@ freeproc(struct proc *p)
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
-  if (p->proc_kernel_pagetable)
-    proc_freekernelpagetable(p->proc_kernel_pagetable);
+  if (p->proc_kernal_pagetable)
+    proc_freekernalpagetable(p->proc_kernal_pagetable);
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -219,7 +219,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 }
 
 void
-proc_freekernelpagetable(pagetable_t pagetable)
+proc_freekernalpagetable(pagetable_t pagetable)
 {
   for (int i = 0; i < 512; ++ i) {
     pte_t pte = pagetable[i];
@@ -227,10 +227,10 @@ proc_freekernelpagetable(pagetable_t pagetable)
       pagetable[i] = 0; // 取消映射关系
       if ((pte & (PTE_R | PTE_W | PTE_X)) == 0) {
         uint64 child = PTE2PA(pte);
-        proc_freekernelpagetable((pagetable_t)child);
+        proc_freekernalpagetable((pagetable_t)child);
       }
     } else if (pte & PTE_V) {
-      panic("Proc free kernel pagetable: leaf");
+      panic("Proc free kernal pagetable: leaf");
     }
   }
   kfree((void*)pagetable);
@@ -262,8 +262,6 @@ userinit(void)
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
-  uvmcopy_new(p->pagetable, p->proc_kernel_pagetable, 0, p->sz);
-
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
@@ -272,6 +270,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+
   release(&p->lock);
 }
 
@@ -285,17 +284,11 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
-    if (PGROUNDDOWN(sz + n) >= PLIC)
-      return -1;
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
-    uvmcopy_new(p->pagetable, p->proc_kernel_pagetable, p->sz, sz);
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
-
-    int npages = (PGROUNDUP(p->sz) - PGROUNDUP(sz)) / PGSIZE;
-    uvmunmap(p->proc_kernel_pagetable, PGROUNDUP(sz), npages, 0);
   }
   p->sz = sz;
   return 0;
@@ -316,8 +309,7 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0 ||
-     uvmcopy_new(np->pagetable, np->proc_kernel_pagetable, 0, p->sz) < 0){
+  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
@@ -522,7 +514,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        w_satp(MAKE_SATP(p->proc_kernel_pagetable));
+        w_satp(MAKE_SATP(p->proc_kernal_pagetable));
         sfence_vma();
         swtch(&c->context, &p->context);
 

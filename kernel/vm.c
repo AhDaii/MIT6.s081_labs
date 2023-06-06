@@ -359,26 +359,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   return -1;
 }
 
-int
-uvmcopy_new(pagetable_t old, pagetable_t new, uint64 bg, uint64 ed)
-{
-  pte_t *pte, *new_pte;
-  uint flags;
-  uint64 pa;
-
-  for (uint64 adr = PGROUNDDOWN(bg); adr < ed; adr += PGSIZE) {
-    if ((pte = walk(old, adr, 0)) == 0)
-      panic("uvmcopy_new: pte should exist");
-    if ((new_pte = walk(new, adr, 1)) == 0)
-      panic("uvmcopy_new: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte) & (~PTE_U);
-    *new_pte = PA2PTE(pa) | flags;
-  }
-
-  return 0;
-}
-
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.
 void
@@ -423,7 +403,23 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
-  return copyin_new(pagetable, dst, srcva, len);
+  uint64 n, va0, pa0;
+
+  while(len > 0){
+    va0 = PGROUNDDOWN(srcva);
+    pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0)
+      return -1;
+    n = PGSIZE - (srcva - va0);
+    if(n > len)
+      n = len;
+    memmove(dst, (void *)(pa0 + (srcva - va0)), n);
+
+    len -= n;
+    dst += n;
+    srcva = va0 + PGSIZE;
+  }
+  return 0;
 }
 
 // Copy a null-terminated string from user to kernel.
@@ -433,7 +429,40 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
-  return copyinstr_new(pagetable, dst, srcva, max);
+  uint64 n, va0, pa0;
+  int got_null = 0;
+
+  while(got_null == 0 && max > 0){
+    va0 = PGROUNDDOWN(srcva);
+    pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0)
+      return -1;
+    n = PGSIZE - (srcva - va0);
+    if(n > max)
+      n = max;
+
+    char *p = (char *) (pa0 + (srcva - va0));
+    while(n > 0){
+      if(*p == '\0'){
+        *dst = '\0';
+        got_null = 1;
+        break;
+      } else {
+        *dst = *p;
+      }
+      --n;
+      --max;
+      p++;
+      dst++;
+    }
+
+    srcva = va0 + PGSIZE;
+  }
+  if(got_null){
+    return 0;
+  } else {
+    return -1;
+  }
 }
 
 int level = -1;
