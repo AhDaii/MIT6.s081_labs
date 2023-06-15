@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "locale": "cpp",
+        "ostream": "c",
+        "__config": "c",
+        "__locale": "c",
+        "cstdlib": "c",
+        "memory_resource": "c",
+        "system_error": "c",
+        "typeinfo": "c",
+        "version": "c",
+        "__string": "c",
+        "concepts": "c",
+        "type_traits": "c",
+        "proc.h": "c",
+        "sysinfo.h": "c",
+        "user.h": "c",
+        "types.h": "c",
+        "riscv.h": "c",
+        "defs.h": "c",
+        "syscall.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.default.compilerPath": "/usr/bin/g++"
+}
