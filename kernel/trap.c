@@ -65,6 +65,27 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 13 || r_scause() == 15) {
+    uint64 va = PGROUNDDOWN(r_stval());
+    if (va < p->sz && va > PGROUNDDOWN(p->trapframe->sp)) {
+      uint64 ka = (uint64)kalloc();
+      if (ka == 0) {
+        p->killed = 1;
+        printf("usertrap(): kalloc failed\n");
+      }
+      else {
+        memset((void *)ka, 0, PGSIZE);
+        if (mappages(p->pagetable, va, PGSIZE, ka, PTE_W|PTE_X|PTE_R|PTE_U) != 0) {
+          kfree((void *)ka);
+          printf("usertrap(): mappages failed\n");
+          p->killed = 1;
+        }
+      }
+    }
+    else {
+      // printf("usertrap(): wrong virtual address\n");
+      p->killed = 1;
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
